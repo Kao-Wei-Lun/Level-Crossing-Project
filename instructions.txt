@@ -1,0 +1,32 @@
+訓練模型指令
+python train.py --workers 8 --device 0 --batch-size 8 --data dataset/data.yaml --img 640 640 --cfg cfg/training/yolov7.yaml --weights '' --name yolov7 --hyp data/hyp.scratch.p5.yaml --epochs 100
+
+python train.py --workers 8 --device 0 --batch-size 8 --data dataset/data.yaml --img 640 640 --cfg cfg/training/yolov7-new-anchor.yaml --weights '' --name yolov7 --hyp data/hyp.yaml --epochs 100
+
+python train.py --workers 8 --device 0 --batch-size 8 --data dataset/data.yaml --img 640 640 --cfg cfg/training/yolov7-anchor.yaml --weights '' --name yolov7 --hyp data/new_hyp.yaml --epochs 100
+
+test 指令
+python test.py --data dataset/data.yaml --img 640 --batch 8 --conf 0.001 --iou 0.5 --device 0 --weights best.pt --name yolov7_640_val
+
+python test.py --data level_crossing_dataset/data.yaml --img 640 --batch 8 --conf 0.001 --iou 0.5 --device 0 --weights best.pt --name yolov7_640_level_crossing_dataset
+
+detect 指令
+python detect.py --weights best.pt --conf 0.5 --img-size 640 --source 1.mp4
+
+python detect.py --weights best.pt --conf 0.1 --img-size 640 --source IMG_5348.MOV
+
+python detect.py --weights best.pt --conf 0.3 --img-size 640 --source IMG_5348.MOV
+
+python main.py --weights best.pt --conf 0.5 --img-size 640 --source IMG_5348.MOV
+
+python try.py --weights best.pt --conf 0.5 --img-size 640 --source IMG_5348.MOV
+
+python detect.py --weights best.pt --conf 0.1 --img-size 640 --source 1.mp4
+
+python detect.py --weights best.pt --conf 0.1 --img-size 640 --source C:/project/video/picture/774.jpg
+python detect.py --weights best.pt --conf 0.1 --img-size 640 --source C:/project/video/picture/409.jpg
+
+
+
+
+tensorboard --logdir runs/train
