@@ -1,0 +1,9 @@
+train: C:\project\project\dataset\train.txt # 6832 images
+val: C:\project\project\dataset\val.txt # 854 images
+test: C:\project\project\dataset\test.txt # 855 images
+
+# number of classes
+nc: 8
+
+# class names
+names: ['bicycle', 'bus', 'car', 'crossing gate', 'motorcycle', 'person', 'train', 'truck']
