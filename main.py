@@ -154,12 +154,23 @@ def check_detection_position(x_position, y_position, top_points, bottom_points):
     Returns:
         str: 結果字符串，'none' 表示沒有火車要經過，'Approaching' 表示火車接近中，'Passing' 表示火車通過中
     """
+    # 檢查是否有除以零的情況
+    if top_points[0][0] == top_points[1][0]:
+        k_top = 0
+    else:
+        k_top = (top_points[1][1] - top_points[0][1]) / (top_points[1][0] - top_points[0][0])
+
+    if bottom_points[0][0] == bottom_points[1][0]:
+        k_bottom = 0
+    else:
+        k_bottom = (bottom_points[1][1] - bottom_points[0][1]) / (bottom_points[1][0] - bottom_points[0][0])
+
     # 計算 top_points 兩點之間的直線方程式
-    k_top = (top_points[1][1] - top_points[0][1]) / (top_points[1][0] - top_points[0][0])
+    #k_top = (top_points[1][1] - top_points[0][1]) / (top_points[1][0] - top_points[0][0])
     b_top = top_points[0][1] - k_top * top_points[0][0]
 
     # 計算 bottom_points 兩點之間的直線方程式
-    k_bottom = (bottom_points[1][1] - bottom_points[0][1]) / (bottom_points[1][0] - bottom_points[0][0])
+    #k_bottom = (bottom_points[1][1] - bottom_points[0][1]) / (bottom_points[1][0] - bottom_points[0][0])
     b_bottom = bottom_points[0][1] - k_bottom * bottom_points[0][0]
 
     # 計算 x_position 對應的 top_points 和 bottom_points 上的 y 座標
