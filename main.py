@@ -141,38 +141,21 @@ def get_range_points(im, point_list):
 
 #------判斷平交道的狀態----------------------------------------------------------------
 
-def check_detection_position(x_position, y_position, top_points, bottom_points):
+def check_detection_position(x_position, y_position, k_top, b_top, k_bottom, b_bottom):
     """
     判斷 x_position, y_position 是否在 top_points, bottom_points 範圍內
 
     Args:
         x_position (int): 要判斷的 x 座標值
         y_position (int): 要判斷的 y 座標值
-        top_points (list): 最上面兩個點的座標列表
-        bottom_points (list): 最下面兩個點的座標列表
+        k_top (float): top_points 兩點之間的斜率
+        b_top (float): top_points 兩點之間的截距
+        k_bottom (float): bottom_points 兩點之間的斜率
+        b_bottom (float): bottom_points 兩點之間的截距
 
     Returns:
         str: 結果字符串，'none' 表示沒有火車要經過，'Approaching' 表示火車接近中，'Passing' 表示火車通過中
     """
-    # 檢查是否有除以零的情況
-    if top_points[0][0] == top_points[1][0]:
-        k_top = 0
-    else:
-        k_top = (top_points[1][1] - top_points[0][1]) / (top_points[1][0] - top_points[0][0])
-
-    if bottom_points[0][0] == bottom_points[1][0]:
-        k_bottom = 0
-    else:
-        k_bottom = (bottom_points[1][1] - bottom_points[0][1]) / (bottom_points[1][0] - bottom_points[0][0])
-
-    # 計算 top_points 兩點之間的直線方程式
-    #k_top = (top_points[1][1] - top_points[0][1]) / (top_points[1][0] - top_points[0][0])
-    b_top = top_points[0][1] - k_top * top_points[0][0]
-
-    # 計算 bottom_points 兩點之間的直線方程式
-    #k_bottom = (bottom_points[1][1] - bottom_points[0][1]) / (bottom_points[1][0] - bottom_points[0][0])
-    b_bottom = bottom_points[0][1] - k_bottom * bottom_points[0][0]
-
     # 計算 x_position 對應的 top_points 和 bottom_points 上的 y 座標
     top_line_y = k_top * x_position + b_top
     bottom_line_y = k_bottom * x_position + b_bottom
@@ -197,27 +180,23 @@ def determine_detection_status(cls3_count, cls3_positions, is_two_points, prev_s
     返回:
         str: 最終的檢測狀態，'none' 表示沒有火車要經過，'Approaching' 表示火車接近中，'Passing' 表示火車通過中，'departed' 表示火車已離開
     """
-    result_state = ""
-    if is_two_points:
-        # 如果只有一個 cls=3 的目標，且 is_two_points 為 True，只使用一個 check_detection_position() 進行判斷
-        if cls3_count == 1:
-            result_state = cls3_positions[0]
-            if prev_status == 'Approaching' and result_state == 'Passing':
-                result_state = 'departed'
-            elif prev_status == 'departed' and result_state == 'Approaching':
-                result_state = 'departed'
-            elif prev_status == 'departed' and result_state == 'none':
-                result_state = 'none'
-        else:
-            result_state = cls3_positions[0]  # 保持前一個狀態
+    # 如果只有一個 cls=3 的目標，且 is_two_points 為 True，只使用一個 check_detection_position() 進行判斷
+    
+    result_state = prev_status  # 初始化為前一個狀態
+
+    if is_two_points and cls3_count == 1:
+        result_state = cls3_positions[0]
+        if prev_status == 'Approaching' and result_state == 'Passing':
+            result_state = 'departed'
+        elif prev_status == 'departed' and result_state in ('Approaching', 'none'):
+            result_state = 'departed'
     else:
-        # 如果有兩個 cls=3 的目標，且 is_two_points 為 False，需要使用兩個 check_detection_position() 進行判斷
+        # 如果有兩個 cls=3 的目標，或者 is_two_points 為 False，需要使用兩個 check_detection_position() 進行判斷
         if cls3_count == 2:
-            # 檢查位置狀態
             if prev_status == 'Passing':
                 if all(pos == 'Passing' for pos in cls3_positions):
                     result_state = 'Passing'
-                if 'Passing' in cls3_positions and 'Approaching' in cls3_positions:
+                elif {'Passing', 'Approaching'} <= set(cls3_positions):
                     result_state = 'departed'
             elif prev_status == 'departed':
                 if all(pos == 'none' for pos in cls3_positions):
@@ -230,7 +209,7 @@ def determine_detection_status(cls3_count, cls3_positions, is_two_points, prev_s
             elif 'Passing' in cls3_positions and 'none' in cls3_positions:
                 if prev_status != 'Passing':
                     result_state = 'Approaching'
-            elif 'Passing' in cls3_positions and 'Approaching' in cls3_positions:
+            elif {'Passing', 'Approaching'} <= set(cls3_positions):
                 if prev_status != 'Passing':
                     result_state = 'Approaching'
             elif all(pos == 'Passing' for pos in cls3_positions):
@@ -238,9 +217,7 @@ def determine_detection_status(cls3_count, cls3_positions, is_two_points, prev_s
             elif all(pos == 'none' for pos in cls3_positions):
                 result_state = 'none'
         elif cls3_count == 1:
-            # 如果只檢測到一個 cls=3 的目標
             result_state = cls3_positions[0]
-
             if prev_status == 'departed' and result_state != 'none':
                 result_state = 'departed'
             elif prev_status == 'departed' and result_state == 'none':
@@ -251,52 +228,30 @@ def determine_detection_status(cls3_count, cls3_positions, is_two_points, prev_s
                 result_state = 'Approaching' if prev_status == 'Approaching' else 'Passing'
             elif prev_status == 'Passing' and result_state == 'Approaching':
                 result_state = 'departed'
-            else:
-                result_state = cls3_positions[0]  # 保持前一個狀態
-        else:
-            result_state = prev_status  # 保持前一個狀態
-
     return result_state
 
 #----------------------------------------------------------------------
 
 #------判斷坐標點所在位置的範圍----------------------------------------------------------------
 
-def is_in_yellow_range(x, y, yellow_img):
-    """
-    判斷坐標 (x, y) 是否在黃色區域內
-
-    參數:
-    - x (int): x 坐標
-    - y (int): y 坐標
-    - yellow_img (numpy.ndarray): 黃色區域圖像陣列
-
-    返回:
-    - bool: 如果坐標在黃色區域內，則返回 True，否則返回 False
-    """
-    # 獲取圖像的高度和寬度
-    height, width, _ = yellow_img.shape
-    # 如果坐標在圖像範圍內並且對應像素值是黃色，則在黃色區域內
-    if 0 <= y < height and 0 <= x < width and np.array_equal(yellow_img[y, x], [0, 255, 255]):
-        return True
-    return False
-
-def is_in_red_range(x, y, red_img):
+def is_in_range(x, y, color, range_img):
     """
     判斷坐標 (x, y) 是否在紅色區域內
 
     參數:
     - x (int): x 坐標
     - y (int): y 坐標
-    - red_img (numpy.ndarray): 紅色區域圖像陣列
+    - color (array): 範圍的顏色
+    - range_img (numpy.ndarray): 區域圖像陣列
 
     返回:
     - bool: 如果坐標在紅色區域內，則返回 True，否則返回 False
     """
     # 獲取圖像的高度和寬度
-    height, width, _ = red_img.shape
+    height, width, _ = range_img.shape
+
     # 如果坐標在圖像範圍內並且對應像素值是紅色，則在紅色區域內
-    if 0 <= y < height and 0 <= x < width and np.array_equal(red_img[y, x], [0, 0, 255]):
+    if 0 <= y < height and 0 <= x < width and np.array_equal(range_img[y, x], color):
         return True
     return False
 
@@ -334,7 +289,9 @@ def check_and_print_detection(det, yellow_img, red_img, confirm_yellow_range, co
 
             if confirm_yellow_range:
                 for point in points:
-                    if is_in_yellow_range(*point, yellow_img):
+                    #if is_in_yellow_range(*point, yellow_img):
+                    color = [0, 255, 255]
+                    if is_in_range(*point, color, yellow_img):
                         # 在黃色區域內
                         print(f'{class_num} class detected at x, y = {point[0]}, {point[1]} in yellow range')
                         in_yellow_range = True
@@ -342,7 +299,9 @@ def check_and_print_detection(det, yellow_img, red_img, confirm_yellow_range, co
 
             if confirm_red_range:
                 for point in points:
-                    if is_in_red_range(*point, red_img):
+                    #if is_in_red_range(*point, red_img):
+                    color = [0, 0, 255]
+                    if is_in_range(*point, color, red_img):
                         # 在紅色區域內
                         print(f'{class_num} class detected at x, y = {point[0]}, {point[1]} in red range')
                         in_red_range = True
@@ -356,22 +315,20 @@ def check_and_print_detection(det, yellow_img, red_img, confirm_yellow_range, co
 #------判斷平交道目標是否有重疊----------------------------------------------------------------
 
 def check_overlap(new_xywh, list_xywh):
-    if not len(list_xywh):
+    if not list_xywh:
         return False
+    
+    new_x, new_y, new_w, new_h = map(int, new_xywh)
     for old_xywh in list_xywh:
-        if int(new_xywh[0]) in range(int(old_xywh[0]), int(old_xywh[0])+int(old_xywh[2])):
-            if int(new_xywh[1]) in range(int(old_xywh[1]), int(old_xywh[1])+int(old_xywh[3])):
+        old_x, old_y, old_w, old_h = map(int, old_xywh)
+        
+        if (new_x >= old_x and new_x <= old_x + old_w) or (old_x >= new_x and old_x <= new_x + new_w):
+            if (new_y >= old_y and new_y <= old_y + old_h) or (old_y >= new_y and old_y <= new_y + new_h):
                 return True
-            if int(old_xywh[1]) in range(int(new_xywh[1]), int(new_xywh[1])+int(new_xywh[3])):
+            if (old_y >= new_y and old_y <= new_y + new_h) or (new_y >= old_y and new_y <= old_y + old_h):
                 return True
-
-        if int(old_xywh[0]) in range(int(new_xywh[0]), int(new_xywh[0])+int(new_xywh[2])):
-            if int(old_xywh[1]) in range(int(new_xywh[1]), int(new_xywh[1])+int(new_xywh[3])):
-                return True
-            if int(new_xywh[1]) in range(int(old_xywh[1]), int(old_xywh[1])+int(old_xywh[3])):
-                return True
-
-    return False         
+    
+    return False
 
 #----------------------------------------------------------------------
 
@@ -431,6 +388,8 @@ def detect(save_img=False):
     old_img_b = 1
 
     t0 = time.time()
+    frame_count = 0  # 初始化帧计数器
+    all_FPS = 0
 
     #------畫線參數----------------------------------------------------------------
 
@@ -559,6 +518,11 @@ def detect(save_img=False):
 
         #----------------------------------------------------------------------
 
+        frame_count += 1  # 增加帧计数器
+        
+        # Start processing time for the current frame
+        start_time = time.time()
+
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -630,7 +594,7 @@ def detect(save_img=False):
                         if (check_overlap(xywh, cls3_xywh)):
                             continue
                         cls3_xywh.append(xywh)
-                        position_result = check_detection_position(x_position, y_position, top_points, bottom_points)
+                        position_result = check_detection_position(x_position, y_position, k_top, b_top, k_bottom, b_bottom)
                         # print(f'Class 3 detected at x, y = {x_position}, {y_position}, Position: {position_result}')
                         cls3_count += 1
                         cls3_positions.append(position_result)
@@ -678,6 +642,18 @@ def detect(save_img=False):
             # 在右上角繪製結果
             cv2.putText(im0, result_state, (im0.shape[1] - 300, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_AA)
 
+            # Calculate FPS for the current frame
+            frame_time = time.time() - start_time
+            fps = 1 / frame_time
+            print(f'FPS: {fps:.2f}')
+
+            if frame_count >= 2:
+                all_FPS += fps
+
+            # 在左上角顯示FPS
+            cv2.putText(im0, f'FPS: {fps:.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
@@ -706,11 +682,19 @@ def detect(save_img=False):
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer.write(im0)
 
+
+    total_time = time.time() - t0
+    average_fps = frame_count / total_time
+    print(f'Done. Total time: {total_time:.3f}s, Average FPS: {average_fps:.2f}')
+
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
         #print(f"Results saved to {save_dir}{s}")
 
     print(f'Done. ({time.time() - t0:.3f}s)')
+
+    average_all_fps = all_FPS / (frame_count - 1)
+    print(f'Average All FPS: {average_all_fps:.2f}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
